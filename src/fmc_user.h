@@ -65,6 +65,7 @@ typedef struct __attribute__((aligned(4), packed)) {
     uint8_t u8KeyboardMode;
     uint8_t u8DividerMode;
     uint8_t u8KeymapProfiles[6][32];
+    uint8_t u8AirOffMask; // Bits 0-5 force AIR1-6 unblocked; uses former tail padding.
 } flash_t;
 _Static_assert(sizeof(flash_t) == 380 && sizeof(flash_t) <= 512, "config must fit one data-flash page");
 extern flash_t gConfig;

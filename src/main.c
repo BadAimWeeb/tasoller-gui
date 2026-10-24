@@ -65,7 +65,7 @@ void Digital_TickInputs() {
     u8Buttons |= DigitalRead(&PIN_AIR6, _PIN_AIR6) ? DIGITAL_AIR6_Msk : 0;
 
     u8Buttons = TickDebouncer(u8Buttons);
-    gu8DigitalButtons = u8Buttons;
+    gu8DigitalButtons = Digital_ApplyAirOff(u8Buttons, gConfig.u8AirOffMask);
 }
 
 int _entry(void) {

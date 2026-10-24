@@ -97,7 +97,8 @@ static inline void Keymap_LoadProfiles(flash_t *config) {
         config->u8KeyboardMode = KEYMAP_32K;
         config->u8DividerMode = DIVIDER_4K;
     }
-    if (config->u32Magic != 0x54617305) Keymap_ProfilesInit(config);
+    if (config->u32Magic != 0x54617305 && config->u32Magic != 0x54617306)
+        Keymap_ProfilesInit(config);
     else {
         for (uint8_t mode = 0; mode < 6; mode++) {
             if (!Keymap_ProfileValid(config->u8KeymapProfiles[mode], mode)) {

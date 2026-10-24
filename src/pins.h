@@ -62,3 +62,9 @@
 #define DIGITAL_AIR4_Msk (1 << DIGITAL_AIR4_Pos)
 #define DIGITAL_AIR5_Msk (1 << DIGITAL_AIR5_Pos)
 #define DIGITAL_AIR6_Msk (1 << DIGITAL_AIR6_Pos)
+
+// AIR bits are active-high (blocked); clearing them preserves IO4's active-low
+// connected/unblocked report as well as keyboard, preview and reactive lighting.
+static inline uint8_t Digital_ApplyAirOff(uint8_t buttons, uint8_t mask) {
+    return buttons & (uint8_t)~((mask & 0x3F) << DIGITAL_AIR1_Pos);
+}

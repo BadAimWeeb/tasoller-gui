@@ -1,4 +1,4 @@
-# HOST configuration API 1.3
+# HOST configuration API 1.4
 
 CDC framing is `FF command length payload checksum`; the unescaped sum is zero
 modulo 256. After sync, escape `FF` as `FD FE` and `FD` as `FD FC`.
@@ -10,7 +10,7 @@ Length/version/complete value validation precedes the busy check.
 | Command | Request payload | Successful response payload |
 | --- | --- | --- |
 | F2 GET_INFO | `[01]` | `[01,00]` + 16-byte identification |
-| F3 GET_CONFIG | `[01]` | `[01,00]` + unchanged 14-byte config |
+| F3 GET_CONFIG | `[01]` | `[01,00]` + 14-byte config |
 | F4 SET_CONFIG | `[01]` + 14-byte config | `[01,00]` |
 | F5 SAVE_CONFIG | `[01]` | `[01,00]` |
 | F6 RESET_CONFIG | `[01]` | `[01,00]` |
@@ -22,13 +22,13 @@ Length/version/complete value validation precedes the busy check.
 | FB GET_PROFILE | `[01, mode]` | `[01,00]` + 32 pad usages |
 | FC SET_PROFILE | `[01, mode]` + 32 pad usages | `[01,00]` |
 
-Identification: API minor `03`, firmware `01 03 00` (1.3.0), capabilities
-`7F 00 00 00` (bits 0 config, 1 verified save, 2 reset, 3 keymap, 4 input preview,
-5 grouped keyboard/divider modes, 6 independent persistent profiles),
+Identification: API minor `04`, firmware `01 04 00` (1.4.0), capabilities
+`FF 00 00 00` (bits 0 config, 1 verified save, 2 reset, 3 keymap, 4 input preview,
+5 grouped keyboard/divider modes, 6 independent persistent profiles, 7 selective air force-off),
 then eight ASCII bytes `TAS-HOST`.
 
 The 14-byte config remains: schema `01`, flags (bit 0 keyboard, bit 1 rainbow),
-sensitivity 1–16, reserved zero, four u16 hues 0–359 (tower left/right,
+sensitivity 1–16, air force-off mask (bits 0–5 = AIR1–6; bits 6–7 must be zero), four u16 hues 0–359 (tower left/right,
 ground/active), ground brightness and tower brightness (0–255).
 
 Keymap slots 0–31 follow `gu8GroundData`/`gu32PSoCDigital` order, not a visual
@@ -118,3 +118,23 @@ explicit SAVE or the existing physical-save path persists it. Invalid/uninitiali
 storage retains the existing defaults-initialization behavior. Persistence remains
 confined to the existing data-flash page at `1F000`; LDROM and CONFIG are untouched.
 Saving is not power-loss atomic. Never automatically retry a write with unknown outcome.
+
+## Selective air force-off
+
+Config byte 3 now selects AIR1–6 independently (bit 0 = AIR1). Zero keeps normal
+operation. Selected inputs are forced to **connected, not blocking** after
+debouncing: their internal buttons bits 2–7 are cleared, so IO4's inverted
+air lines remain in the unblocked state and no keyboard air usage is held.
+Input preview and reactive lighting use the same effective values. FN buttons
+and unselected sensors are unchanged. This is a reporting override, not sensor
+power control or a physical connection diagnostic.
+
+Apply updates RAM; Save persists the mask; Reset restores zero. The GUI requires
+API 1.4+ and capability bit 7, so it cannot silently send this setting to older
+firmware. Older GUIs reject a nonzero mask rather than misinterpreting it.
+
+Storage magic is now `54617306`. The mask occupies offset 379 (previous tail
+padding), keeping the record 380 bytes and all previous offsets unchanged.
+Records `54617302`–`54617305` migrate with the mask zero, preserving existing
+settings/calibration/keymaps/profiles. Invalid stored masks fall back to zero.
+Migration does not automatically save.

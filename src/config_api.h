@@ -20,7 +20,7 @@ enum { CONFIG_OK, CONFIG_LENGTH, CONFIG_VERSION, CONFIG_VALUE, CONFIG_BUSY, CONF
 
 static inline uint8_t Config_Validate(const uint8_t *data, uint8_t length) {
     if (length != CONFIG_API_SIZE) return CONFIG_LENGTH;
-    if (data[0] != 1 || (data[1] & ~3) || data[3] || data[2] < 1 || data[2] > 16)
+    if (data[0] != 1 || (data[1] & ~3) || (data[3] & ~0x3F) || data[2] < 1 || data[2] > 16)
         return CONFIG_VALUE;
     for (uint8_t i = 4; i < 12; i += 2)
         if (((uint16_t)data[i] | ((uint16_t)data[i + 1] << 8)) > 359) return CONFIG_VALUE;
@@ -33,7 +33,7 @@ static inline void Config_Encode(const flash_t *config, uint8_t *data) {
     data[0] = 1;
     data[1] = config->bEnableKeyboard | (config->bEnableRainbow << 1);
     data[2] = config->u8Sens;
-    data[3] = 0;
+    data[3] = config->u8AirOffMask;
     for (uint8_t i = 0; i < 4; i++) {
         data[4 + 2 * i] = hues[i];
         data[5 + 2 * i] = hues[i] >> 8;
@@ -47,6 +47,7 @@ static inline void Config_Apply(flash_t *config, const uint8_t *data) {
     config->bEnableKeyboard = data[1] & 1;
     config->bEnableRainbow = (data[1] >> 1) & 1;
     config->u8Sens = data[2];
+    config->u8AirOffMask = data[3];
     config->u16HueTowerLeft = data[4] | ((uint16_t)data[5] << 8);
     config->u16HueTowerRight = data[6] | ((uint16_t)data[7] << 8);
     config->u16HueGround = data[8] | ((uint16_t)data[9] << 8);

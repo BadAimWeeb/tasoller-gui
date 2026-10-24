@@ -329,6 +329,12 @@ fn settings(config: Config) -> Settings {
         keyboard: config.keyboard,
         rainbow: config.rainbow,
         sensitivity: i32::from(config.sensitivity),
+        air1_off: config.air_off_mask & 1 != 0,
+        air2_off: config.air_off_mask & 2 != 0,
+        air3_off: config.air_off_mask & 4 != 0,
+        air4_off: config.air_off_mask & 8 != 0,
+        air5_off: config.air_off_mask & 16 != 0,
+        air6_off: config.air_off_mask & 32 != 0,
         left: i32::from(config.hues[0]),
         right: i32::from(config.hues[1]),
         ground: i32::from(config.hues[2]),
@@ -345,6 +351,12 @@ fn config(settings: Settings) -> Result<Config, String> {
         keyboard: settings.keyboard,
         rainbow: settings.rainbow,
         sensitivity: byte(settings.sensitivity)?,
+        air_off_mask: u8::from(settings.air1_off)
+            | (u8::from(settings.air2_off) << 1)
+            | (u8::from(settings.air3_off) << 2)
+            | (u8::from(settings.air4_off) << 3)
+            | (u8::from(settings.air5_off) << 4)
+            | (u8::from(settings.air6_off) << 5),
         hues: [
             hue(settings.left)?,
             hue(settings.right)?,
@@ -797,6 +809,12 @@ mod tests {
         let input = Settings {
             sensitivity: 16,
             keyboard: true,
+            air1_off: true,
+            air2_off: true,
+            air3_off: true,
+            air4_off: true,
+            air5_off: true,
+            air6_off: true,
             ..Default::default()
         };
         let lighting = Settings {
@@ -807,6 +825,12 @@ mod tests {
         let merged = lighting_settings(lighting, input);
         assert_eq!(merged.sensitivity, 16);
         assert!(merged.keyboard);
+        assert!(merged.air1_off);
+        assert!(merged.air2_off);
+        assert!(merged.air3_off);
+        assert!(merged.air4_off);
+        assert!(merged.air5_off);
+        assert!(merged.air6_off);
         assert_eq!(merged.left, 120);
         assert!(merged.rainbow);
     }
@@ -851,9 +875,16 @@ mod tests {
             keyboard: true,
             rainbow: true,
             sensitivity: 16,
+            air_off_mask: 0,
             hues: [0, 120, 240, 359],
             brightness: [0, 255],
         };
-        assert_eq!(super::config(settings(config)).unwrap(), config);
+        for mask in 0..=63 {
+            let config = Config {
+                air_off_mask: mask,
+                ..config
+            };
+            assert_eq!(super::config(settings(config)).unwrap(), config);
+        }
     }
 }

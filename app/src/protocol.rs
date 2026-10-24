@@ -126,14 +126,14 @@ pub fn keymap(bytes: &[u8]) -> Result<Keymap, String> {
 
 pub fn info(data: &[u8]) -> Result<String, String> {
     if data.len() != 16
-        || data[0] < 3
+        || data[0] < 4
         || data[1] != 1
-        || u32::from_le_bytes(data[4..8].try_into().map_err(|_| "invalid capabilities")?) & 127
-            != 127
+        || u32::from_le_bytes(data[4..8].try_into().map_err(|_| "invalid capabilities")?) & 255
+            != 255
         || &data[8..] != b"TAS-HOST"
     {
         return Err(
-            "incompatible device: requires firmware major 1, API 1.3+, capabilities 127, TAS-HOST"
+            "incompatible device: requires firmware major 1, API 1.4+, capabilities 255, TAS-HOST"
                 .into(),
         );
     }
@@ -225,6 +225,7 @@ pub struct Config {
     pub keyboard: bool,
     pub rainbow: bool,
     pub sensitivity: u8,
+    pub air_off_mask: u8,
     pub hues: [u16; 4],
     pub brightness: [u8; 2],
 }
@@ -234,10 +235,14 @@ impl Config {
         if !(1..=16).contains(&self.sensitivity) || self.hues.iter().any(|h| *h > 359) {
             return Err("sensitivity must be 1-16; hues must be 0-359".into());
         }
+        if self.air_off_mask & !63 != 0 {
+            return Err("air off mask must be 0-63".into());
+        }
         let mut bytes = [0; 14];
         bytes[0] = 1;
         bytes[1] = u8::from(self.keyboard) | (u8::from(self.rainbow) << 1);
         bytes[2] = self.sensitivity;
+        bytes[3] = self.air_off_mask;
         for (i, hue) in self.hues.iter().enumerate() {
             bytes[4 + i * 2..6 + i * 2].copy_from_slice(&hue.to_le_bytes());
         }
@@ -246,13 +251,14 @@ impl Config {
     }
 
     pub fn decode(bytes: &[u8]) -> Result<Self, String> {
-        if bytes.len() != 14 || bytes[0] != 1 || bytes[1] & !3 != 0 || bytes[3] != 0 {
-            return Err("invalid config length, layout, flags or reserved byte".into());
+        if bytes.len() != 14 || bytes[0] != 1 || bytes[1] & !3 != 0 || bytes[3] & !63 != 0 {
+            return Err("invalid config length, layout, flags or air off mask".into());
         }
         let config = Self {
             keyboard: bytes[1] & 1 != 0,
             rainbow: bytes[1] & 2 != 0,
             sensitivity: bytes[2],
+            air_off_mask: bytes[3],
             hues: std::array::from_fn(|i| u16::from_le_bytes([bytes[4 + i * 2], bytes[5 + i * 2]])),
             brightness: [bytes[12], bytes[13]],
         };
@@ -504,6 +510,7 @@ mod tests {
             keyboard: true,
             rainbow: false,
             sensitivity: 16,
+            air_off_mask: 0,
             hues: [0, 359, 253, 255],
             brightness: [0, 255],
         }
@@ -559,12 +566,42 @@ mod tests {
     fn config_validation() {
         let bytes = config().encode().unwrap();
         assert_eq!(Config::decode(&bytes).unwrap(), config());
-        for (index, value) in [(0, 2), (1, 4), (2, 0), (2, 17), (3, 1), (5, 255)] {
+        for (index, value) in [
+            (0, 2), (1, 4), (2, 0), (2, 17), (3, 64), (3, 128), (5, 255),
+        ] {
             let mut bad = bytes;
             bad[index] = value;
             assert!(Config::decode(&bad).is_err());
         }
         assert!(Config::decode(&bytes[..13]).is_err());
+    }
+
+    #[test]
+    fn air_off_masks_roundtrip() {
+        for mask in 0..=63 {
+            let config = Config {
+                air_off_mask: mask,
+                ..config()
+            };
+            let bytes = config.encode().unwrap();
+            assert_eq!(bytes.len(), 14);
+            assert_eq!(bytes[0], 1);
+            assert_eq!(bytes[3], mask);
+            assert_eq!(Config::decode(&bytes).unwrap(), config);
+        }
+        for mask in [64, 128, 255] {
+            assert!(
+                Config {
+                    air_off_mask: mask,
+                    ..config()
+                }
+                .encode()
+                .is_err()
+            );
+            let mut bytes = config().encode().unwrap();
+            bytes[3] = mask;
+            assert!(Config::decode(&bytes).is_err());
+        }
     }
 
     #[test]
@@ -576,7 +613,7 @@ mod tests {
         assert!(request(SET_CONFIG, None).is_err());
         assert!(request(GET_INFO, Some(config())).is_err());
         let info = [
-            1, 0, 3, 1, 3, 0, 127, 0, 0, 0, b'T', b'A', b'S', b'-', b'H', b'O', b'S', b'T',
+            1, 0, 4, 1, 4, 0, 255, 0, 0, 0, b'T', b'A', b'S', b'-', b'H', b'O', b'S', b'T',
         ];
         assert!(response(GET_INFO, &info).is_ok());
         for i in [3, 6, 10, 17] {
@@ -584,11 +621,16 @@ mod tests {
             bad[i] ^= 1;
             assert!(response(GET_INFO, &bad).is_err());
         }
+        for (index, value) in [(2, 3), (6, 127)] {
+            let mut old = info;
+            old[index] = value;
+            assert!(response(GET_INFO, &old).is_err());
+        }
         let mut newer = info;
         newer[2] = 9;
         newer[4] = 7;
         newer[5] = 8;
-        newer[6] = 127;
+        newer[6] = 255;
         assert!(response(GET_INFO, &newer).is_ok());
         for len in 0..info.len() {
             assert!(response(GET_INFO, &info[..len]).is_err());

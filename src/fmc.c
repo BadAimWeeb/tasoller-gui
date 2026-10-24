@@ -42,7 +42,7 @@ int FMC_Proc(uint32_t u32Cmd, uint32_t addr_start, uint32_t addr_end, uint32_t *
 // #define DATAFLASH_BASE (0x1F000)
 // Dao has his data based at FE0. We're going to base ourself at 000 instead
 #define DATAFLASH_EEPROM_BASE (DATAFLASH_BASE + 0x000)
-#define DATAFLASH_VERSION (0x05)  // Gets merged into the magic number
+#define DATAFLASH_VERSION (0x06)  // Gets merged into the magic number
 #define DATAFLASH_MAGIC (0x54617300 | DATAFLASH_VERSION)
 
 flash_t gConfig;
@@ -52,6 +52,7 @@ void FMC_ConfigDefaults(void) {
         gConfig.bEnableRainbow = 1;
 
         gConfig.u8Sens = 8;
+        gConfig.u8AirOffMask = 0;
 
         gConfig.u16HueTowerLeft = 330;
         gConfig.u16HueTowerRight = 180;
@@ -78,7 +79,8 @@ void FMC_EEPROM_Load(void) {
     FMC_Open();
 
     int result = FMC_ReadData(DATAFLASH_EEPROM_BASE, DATAFLASH_EEPROM_BASE + sizeof gConfig, (void *)&gConfig);
-    if (result || (gConfig.u32Magic != DATAFLASH_MAGIC && gConfig.u32Magic != 0x54617304 &&
+    if (result || (gConfig.u32Magic != DATAFLASH_MAGIC && gConfig.u32Magic != 0x54617305 &&
+                   gConfig.u32Magic != 0x54617304 &&
                    gConfig.u32Magic != 0x54617303 && gConfig.u32Magic != 0x54617302)) {
         gConfig.u8Flags = 0;
         FMC_ConfigDefaults();
@@ -90,6 +92,9 @@ void FMC_EEPROM_Load(void) {
 
         bConfigDirty = 1;
     }
+    // Legacy tail padding is not a setting; never interpret it as an override.
+    if (gConfig.u32Magic != DATAFLASH_MAGIC || (gConfig.u8AirOffMask & ~0x3F))
+        gConfig.u8AirOffMask = 0;
     Keymap_LoadProfiles(&gConfig);
     // If it's an invalid value, it's probably from uninitialized flash; don't boot to the
     // bootloader!

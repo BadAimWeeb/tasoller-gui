@@ -106,7 +106,7 @@ static void Slider_Process(slider_cmd_Rx u8SliderCmd, uint8_t* pu8Packet, uint8_
         else {
             switch ((uint8_t)u8SliderCmd) {
                 case CONFIG_GET_INFO: {
-                    static const uint8_t info[16] = { 3, 1, 3, 0, 0x7F, 0, 0, 0,
+                    static const uint8_t info[16] = { 4, 1, 4, 0, 0xFF, 0, 0, 0,
                                                       'T', 'A', 'S', '-', 'H', 'O', 'S', 'T' };
                     memcpy(response + 2, info, sizeof info);
                     length += sizeof info;

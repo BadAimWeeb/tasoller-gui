@@ -18,6 +18,13 @@ export struct Settings {
     keyboard: bool,
     rainbow: bool,
     sensitivity: int,
+    air1-off: bool,
+    air2-off: bool,
+    air3-off: bool,
+    air4-off: bool,
+    air5-off: bool,
+    air6-off: bool,
+
     left: int,
     right: int,
     ground: int,
@@ -450,6 +457,43 @@ export component AppWindow inherits Window {
                     text: "Import";
                     enabled: root.editable;
                     clicked => { root.import-map(); }
+                }
+            }
+
+            GroupBox {
+                title: "Force AIR off (unblocked)";
+                HorizontalLayout {
+                    spacing: StyleMetrics.layout-spacing;
+                    CheckBox {
+                        text: "AIR1 off";
+                        checked <=> root.draft.air1-off;
+                        enabled: root.editable;
+                    }
+                    CheckBox {
+                        text: "AIR2 off";
+                        checked <=> root.draft.air2-off;
+                        enabled: root.editable;
+                    }
+                    CheckBox {
+                        text: "AIR3 off";
+                        checked <=> root.draft.air3-off;
+                        enabled: root.editable;
+                    }
+                    CheckBox {
+                        text: "AIR4 off";
+                        checked <=> root.draft.air4-off;
+                        enabled: root.editable;
+                    }
+                    CheckBox {
+                        text: "AIR5 off";
+                        checked <=> root.draft.air5-off;
+                        enabled: root.editable;
+                    }
+                    CheckBox {
+                        text: "AIR6 off";
+                        checked <=> root.draft.air6-off;
+                        enabled: root.editable;
+                    }
                 }
             }
 
